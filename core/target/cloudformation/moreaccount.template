@@ -1,0 +1,233 @@
+
+Parameters:
+
+  LambdaRole:
+    Type: String
+    Description: The ARN of the role assumed by the lambda when handling requests
+
+Resources:
+  Function:
+    Type: AWS::Lambda::Function
+    Properties:
+      
+      Handler: more.core.generated.GeneratedLambda::handle
+      Runtime: java8
+      MemorySize: 512
+      Timeout: 10
+      Environment:
+        Variables:
+          EXAMPLE_ENVIRONMENT_VARIABLE: "Bob"
+      Code:
+        S3Bucket: moreaccount-code-2884e8c3
+        S3Key: moreaccount.7105f7520d9c1ffae99ec710a1fe4dfd.jar
+      Role: !Ref LambdaRole
+
+  LambdaVersion:
+    Type: Custom::LambdaVersion
+    Properties:
+      ServiceToken: !GetAtt LambdaVersionFunction.Arn
+      FunctionName: !Ref Function
+      CodeHash: 7105f7520d9c1ffae99ec710a1fe4dfd
+
+  LambdaVersionFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: "index.handler"
+      Role: !GetAtt LambdaVersionExecutionRole.Arn
+      Code:
+        ZipFile: !Sub |
+          
+          var AWS = require('aws-sdk');
+          var response = require('cfn-response');
+          exports.handler = (event, context, callback) => {
+            if (event.RequestType == 'Delete') {
+              response.send(event, context, response.SUCCESS);
+            }
+            var lambda = new AWS.Lambda();
+            lambda.publishVersion({FunctionName: event.ResourceProperties.FunctionName}).promise().then((data) => {
+              var permissionsParams = {
+                  Action: "lambda:InvokeFunction",
+                  FunctionName: data.FunctionArn,
+                  Principal: "apigateway.amazonaws.com",
+                  SourceArn: "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${Api}/*",
+                  StatementId: "94bc5269-dbd6-404f-b12b-9af61cb19cfc"
+              }
+              lambda.addPermission(permissionsParams).promise().then((resp) => {
+                return response.send(event, context, response.SUCCESS, {FunctionArn: data.FunctionArn}, data.FunctionArn);
+              }).catch((e) => {
+                return response.send(event, context, response.FAILED, e);
+              });
+            }).catch((e) => {
+              return response.send(event, context, response.FAILED, e);
+            });
+          };
+
+      Runtime: nodejs8.10
+
+  LambdaVersionExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal: {Service: [lambda.amazonaws.com]}
+          Action: ['sts:AssumeRole']
+      Path: /
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+      - PolicyName: PublishVersion
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action: ['lambda:PublishVersion', 'lambda:AddPermission']
+            Resource: '*'
+  Stagedev:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: dev
+      RestApiId: !Ref Api
+      Description: "Development stage"
+      DeploymentId: !Ref Deployment
+      Variables: 
+        "VAR1": "devValue1"
+        "VAR2": "devValue2"
+  Stageprod:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: prod
+      RestApiId: !Ref Api
+      Description: "Production stage"
+      DeploymentId: !Ref Deployment
+      Variables: 
+        "VAR1": "prodValue1"
+        "VAR2": "prodValue2"
+  Api:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: "moreaccount"
+      Description: "Application 'moreaccount', created with Osiris"
+      FailOnWarnings: true
+      BinaryMediaTypes: []
+  Resourcef340ebb4284fa914:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !GetAtt Api.RootResourceId
+      PathPart: "helloworld"
+  Resourcef340ebb4284fa914GET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      HttpMethod: GET
+      ResourceId: !Ref Resourcef340ebb4284fa914
+      RestApiId: !Ref Api
+      AuthorizationType: NONE
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaVersion.FunctionArn}/invocations
+  Resourceed43861ea37d7516:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !GetAtt Api.RootResourceId
+      PathPart: "helloplain"
+  Resourceed43861ea37d7516GET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      HttpMethod: GET
+      ResourceId: !Ref Resourceed43861ea37d7516
+      RestApiId: !Ref Api
+      AuthorizationType: NONE
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaVersion.FunctionArn}/invocations
+  Resource6b476561cbd21e66:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !GetAtt Api.RootResourceId
+      PathPart: "helloqueryparam"
+  Resource6b476561cbd21e66GET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      HttpMethod: GET
+      ResourceId: !Ref Resource6b476561cbd21e66
+      RestApiId: !Ref Api
+      AuthorizationType: NONE
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaVersion.FunctionArn}/invocations
+  Resource3bd74c8a07bb5f64:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !GetAtt Api.RootResourceId
+      PathPart: "helloenv"
+  Resource3bd74c8a07bb5f64GET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      HttpMethod: GET
+      ResourceId: !Ref Resource3bd74c8a07bb5f64
+      RestApiId: !Ref Api
+      AuthorizationType: NONE
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaVersion.FunctionArn}/invocations
+  Resource8191505b90e38baf:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !GetAtt Api.RootResourceId
+      PathPart: "hello"
+  Resource51ed1cf00fd2f153:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref Api
+      ParentId: !Ref Resource8191505b90e38baf
+      PathPart: "{name}"
+  Resource51ed1cf00fd2f153GET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      HttpMethod: GET
+      ResourceId: !Ref Resource51ed1cf00fd2f153
+      RestApiId: !Ref Api
+      AuthorizationType: NONE
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaVersion.FunctionArn}/invocations
+  Deployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - Resourcef340ebb4284fa914GET
+      - Resourceed43861ea37d7516GET
+      - Resource6b476561cbd21e66GET
+      - Resource3bd74c8a07bb5f64GET
+      - Resource51ed1cf00fd2f153GET
+    Properties:
+      RestApiId: !Ref Api
+Outputs:
+  ApiId:
+    Description: ID of the API Gateway API
+    Value: !Ref Api
+  ApiRootResourceId:
+    Description: ID of the root resource API Gateway API
+    Value: !GetAtt Api.RootResourceId
+  LambdaArn:
+    Description: The lambda function
+    Value: !GetAtt Function.Arn
+  LambdaVersionArn:
+    Description: The lambda function version
+    Value: !GetAtt LambdaVersion.FunctionArn
+  CodeS3Bucket:
+    Description: The name of the bucket containing the code
+    Value: moreaccount-code-2884e8c3
+  CodeS3Key:
+    Description: The key used to store the jar file containing the code in the S3 bucket
+    Value: moreaccount.7105f7520d9c1ffae99ec710a1fe4dfd.jar
